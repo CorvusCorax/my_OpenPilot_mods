@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/configgadget">
+        <file>images/XBee.svg</file>
+        <file>images/Airframe.png</file>
+        <file>images/Servo.png</file>
+        <file>images/ahrs-calib.svg</file>
+        <file>images/AHRS-v1.3.png</file>
+        <file>images/paper-plane.svg</file>
+        <file>images/curve-bg.svg</file>
+        <file>images/quad-shapes.svg</file>
+        <file>images/ccpm_setup.svg</file>
+    </qresource>
+</RCC>
