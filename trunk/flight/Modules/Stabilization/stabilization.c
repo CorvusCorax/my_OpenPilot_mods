@@ -36,7 +36,7 @@
 #include "stabilizationsettings.h"
 #include "actuatordesired.h"
 #include "ratedesired.h"
-#include "attitudedesired.h"
+#include "stabilizationdesired.h"
 #include "attitudeactual.h"
 #include "attituderaw.h"
 #include "manualcontrolcommand.h"
@@ -119,7 +119,7 @@ static void stabilizationTask(void* parameters)
 
 
 	ActuatorDesiredData actuatorDesired;
-	AttitudeDesiredData attitudeDesired;
+	StabilizationDesiredData stabDesired;
 	RateDesiredData rateDesired;
 	AttitudeActualData attitudeActual;
 	AttitudeRawData attitudeRaw;
@@ -148,15 +148,14 @@ static void stabilizationTask(void* parameters)
 		lastSysTime = thisSysTime;
 
 		ManualControlCommandGet(&manualControl);
-		AttitudeDesiredGet(&attitudeDesired);
+		StabilizationDesiredGet(&stabDesired);
 		AttitudeActualGet(&attitudeActual);
 		AttitudeRawGet(&attitudeRaw);
 		RateDesiredGet(&rateDesired);
 		SystemSettingsGet(&systemSettings);
 
 
-		float *manualAxis = &manualControl.Roll;
-		float *attitudeDesiredAxis = &attitudeDesired.Roll;
+		float *attitudeDesiredAxis = &stabDesired.Roll;
 		float *attitudeActualAxis = &attitudeActual.Roll;
 		float *actuatorDesiredAxis = &actuatorDesired.Roll;
 		float *rateDesiredAxis = &rateDesired.Roll;
@@ -164,13 +163,13 @@ static void stabilizationTask(void* parameters)
 		//Calculate desired rate
 		for(int8_t ct=0; ct< MAX_AXES; ct++)
 		{
-			switch(manualControl.StabilizationSettings[ct])
+			switch(stabDesired.StabilizationMode[ct])
 			{
-			case MANUALCONTROLCOMMAND_STABILIZATIONSETTINGS_RATE:
-				rateDesiredAxis[ct] = manualAxis[ct] * settings.ManualRate[ct];
+			case STABILIZATIONDESIRED_STABILIZATIONMODE_RATE:
+				rateDesiredAxis[ct] = attitudeDesiredAxis[ct];
 				break;
 
-			case MANUALCONTROLCOMMAND_STABILIZATIONSETTINGS_ATTITUDE:
+			case STABILIZATIONDESIRED_STABILIZATIONMODE_ATTITUDE:
 				rateDesiredAxis[ct] = ApplyPid(&pids[PID_ROLL + ct],  attitudeDesiredAxis[ct],  attitudeActualAxis[ct], 1);
 				break;
 			}
@@ -193,31 +192,31 @@ static void stabilizationTask(void* parameters)
 				}
 
 			}
-			switch(manualControl.StabilizationSettings[ct])
+			switch(stabDesired.StabilizationMode[ct])
 			{
-			case MANUALCONTROLCOMMAND_STABILIZATIONSETTINGS_RATE:
-			case MANUALCONTROLCOMMAND_STABILIZATIONSETTINGS_ATTITUDE:
+			case STABILIZATIONDESIRED_STABILIZATIONMODE_RATE:
+			case STABILIZATIONDESIRED_STABILIZATIONMODE_ATTITUDE:
 				{
 					float command = ApplyPid(&pids[PID_RATE_ROLL + ct],  rateDesiredAxis[ct],  attitudeRaw.gyros[ct], 0);
 					actuatorDesiredAxis[ct] = bound(command);
 					shouldUpdate = 1;
 					break;
 				}
-            case MANUALCONTROLCOMMAND_STABILIZATIONSETTINGS_NONE:
+            case STABILIZATIONDESIRED_STABILIZATIONMODE_NONE:
                     //actuatorDesiredAxis[ct] = bound(manualAxis[ct]);
                     //shouldUpdate = 1;
                     switch (ct)
                     {
                     case ROLL:
-                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]/settings.RollMax);
+                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]);
                             shouldUpdate = 1;
                     break;
                     case PITCH:
-                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]/settings.PitchMax);
+                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]);
                             shouldUpdate = 1;
                     break;
                     case YAW:
-                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]/180);
+                            actuatorDesiredAxis[ct] = bound(attitudeDesiredAxis[ct]);
                             shouldUpdate = 1;
                     break;
                     }
@@ -237,14 +236,14 @@ static void stabilizationTask(void* parameters)
 
 		if(shouldUpdate)
 		{
-			actuatorDesired.Throttle = attitudeDesired.Throttle;
+			actuatorDesired.Throttle = stabDesired.Throttle;
 			if(dT > 15)
 				actuatorDesired.NumLongUpdates++;
 			ActuatorDesiredSet(&actuatorDesired);
 		}
 
 		if(manualControl.Armed == MANUALCONTROLCOMMAND_ARMED_FALSE ||
-			!shouldUpdate || (attitudeDesired.Throttle < 0))
+			!shouldUpdate || (stabDesired.Throttle < 0))
 		{
 			ZeroPids();
 		}
