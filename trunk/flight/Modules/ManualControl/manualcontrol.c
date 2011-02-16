@@ -499,7 +499,7 @@ static void manualControlTask(void *parameters)
 			}
 			stabi.Throttle =  (cmd.Throttle < 0) ? -1 : cmd.Throttle;
 			for(int i = 0; i < 3; i++) {
-				stabi.StabilizationSettings[i] = cmd.StabilizationSettings[i];
+				stabi.StabilizationMode[i] = cmd.StabilizationSettings[i];
 			}
 			StabilizationDesiredSet(&stabi);
 		}
