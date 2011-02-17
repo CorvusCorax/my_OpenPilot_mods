@@ -154,33 +154,50 @@ static void stabilizationTask(void* parameters)
 		AttitudeRawGet(&attitudeRaw);
 		RateDesiredGet(&rateDesired);
 		SystemSettingsGet(&systemSettings);
+
+		float *attitudeDesiredAxis = &stabDesired.Roll;
+		float *attitudeActualAxis = &attitudeActual.Roll;
+		float *actuatorDesiredAxis = &actuatorDesired.Roll;
+		float *rateDesiredAxis = &rateDesired.Roll;
 		
+
 #if defined(PIOS_QUATERNION_STABILIZATION)
 		// Quaternion calculation of error in each axis.  Uses more memory.
+        float rpy[3];
 		float q_desired[4];
 		float q_curr[4];
 		float q_error[4];
 		float local_error[3];
-		
+
+        // fix non used axis to provoke 0 error
+		for(int8_t ct=0; ct< MAX_AXES; ct++)
+		{
+			switch(stabDesired.StabilizationMode[ct])
+			{
+				case STABILIZATIONDESIRED_STABILIZATIONMODE_ATTITUDE:
+                    rpy[ct] = attitudeDesiredAxis[ct];
+					break;
+                default:
+                    rpy[ct] = attitudeActualAxis[ct];
+                    break;
+			}
+		}
 		// Compute stabilization error as (q_desired' * q_current)', convert to RPY
-		RPY2Quaternion(&stabDesired.Roll, q_desired);
-		quat_copy(&attitudeActual.q1, q_curr);		
-		quat_inverse(q_curr);
-		quat_mult(q_curr, q_desired, q_error);
+		RPY2Quaternion(rpy, q_desired);
+		quat_copy(&attitudeActual.q1, q_curr);
+		quat_inverse(q_desired);
+		quat_mult(q_desired, q_curr, q_error);
+		quat_inverse(q_error);
 		Quaternion2RPY(q_error, local_error);
 		
 #else
 		// Simpler algorithm for CC, less memory
-		float local_error[3] = {attitudeActual.Roll - stabDesired.Roll,
-			attitudeActual.Pitch - stabDesired.Pitch,
-			attitudeActual.Yaw - stabDesired.Yaw};
+		float local_error[3] = {-attitudeActual.Roll + stabDesired.Roll,
+			- attitudeActual.Pitch + stabDesired.Pitch,
+			- attitudeActual.Yaw + stabDesired.Yaw};
 		local_error[2] = fmod(local_error[2] + 180, 360) - 180;
 #endif
 			
-		float *attitudeDesiredAxis = &stabDesired.Roll;
-		float *actuatorDesiredAxis = &actuatorDesired.Roll;
-		float *rateDesiredAxis = &rateDesired.Roll;
-		
 		//Calculate desired rate
 		for(int8_t ct=0; ct< MAX_AXES; ct++)
 		{
